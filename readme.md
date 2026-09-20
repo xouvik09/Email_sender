@@ -2,7 +2,31 @@
 
 A production-ready, zero-dependency email delivery system and bulk dispatch platform built on the **Python standard library** (`http.server`, `smtplib`, `ssl`, `email.mime.*`) and modern vanilla JavaScript.
 
-Designed for real-world deployment on servers, VPS, or cloud containers with high reliability, clean UX, and strict RFC-compliant MIME formatting.
+Designed for real-world deployment on **Vercel**, Linux VPS, or cloud containers with high reliability, clean UX, and strict RFC-compliant MIME formatting.
+
+---
+
+## Deploy to Vercel (1-Click or CLI)
+
+This project is pre-configured with `vercel.json` and serverless Python handlers in `api/index.py`.
+
+### Option A: Deploy via GitHub (Recommended)
+1. Push your repository to GitHub (already linked: `https://github.com/xouvik09/Email_sender`).
+2. Go to **[vercel.com](https://vercel.com/)** and log in.
+3. Click **"Add New..."** &rarr; **"Project"**.
+4. Import your **`Email_sender`** repository.
+5. Click **Deploy**. Vercel will automatically build the static assets and serverless Python API.
+
+*(Optional)* In the Vercel Project Settings &rarr; **Environment Variables**, you can define `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` if you want default credentials pre-loaded.
+
+### Option B: Deploy via Vercel CLI
+```bash
+# Install Vercel CLI if you haven't already
+npm i -g vercel
+
+# Run deploy from the project folder
+vercel
+```
 
 ---
 
@@ -22,7 +46,7 @@ Designed for real-world deployment on servers, VPS, or cloud containers with hig
 
 ---
 
-## Quick Start
+## Quick Start (Run Locally)
 
 ### 1. Run the Server
 ```bash
@@ -63,7 +87,7 @@ Select **Custom** and enter your corporate or hosting provider's SMTP host, port
 
 ## Environment Configuration (`.env`)
 
-For deployment environments or persistent credentials without manual browser input, create a `.env` file in the project directory:
+For local development or persistent credentials without manual browser input, create a `.env` file in the project directory:
 
 ```env
 SMTP_HOST=smtp.gmail.com
@@ -87,16 +111,3 @@ APP_PORT=8000
 | `GET` | `/api/history` | Audit log of sent email transmissions |
 | `POST` | `/api/verify` | Tests SMTP host connectivity and authentication |
 | `POST` | `/api/send` | Executes real email dispatch via authenticated SMTP |
-
----
-
-## Production Deployment
-
-To run as a continuous background service on Linux/VPS:
-
-```bash
-# Using systemd or nohup
-nohup python3 app.py > dispatch.log 2>&1 &
-```
-
-Or deploy behind a reverse proxy such as Nginx or Caddy with SSL enabled.
