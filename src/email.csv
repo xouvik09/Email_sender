@@ -1,1 +1,3 @@
-LIST OF EMAILS IN A SINGLE COLUMN
+email,name
+someone@example.com,Someone
+another@example.com,Another
