@@ -1,7 +1,8 @@
 # Email Sender
 
-Send templated plaintext + HTML emails over SMTP to one recipient or a CSV list,
-from the command line.
+Send templated plaintext + HTML emails over SMTP to one recipient or a CSV list —
+from a web UI or the command line. Both share the same `email_sender` core, so it
+is a single project with one config and one dependency set.
 
 ## Install
 
@@ -22,7 +23,22 @@ Credentials are read from the environment (or `.env`), never hard-coded:
 | `SMTP_SENDER` | no | `SMTP_USERNAME` | From override |
 | `SMTP_SENDER_NAME` | no | – | display name |
 
-## Usage
+## Web UI
+
+```bash
+python -m email_sender.web            # http://127.0.0.1:8000
+python -m email_sender.web --port 5000 --dry-run-only
+```
+
+The page shows whether SMTP credentials are configured, lets you paste addresses
+or upload a CSV, edit the plaintext and HTML bodies (prefilled from `src/`),
+preview the rendered message for the first recipient, and send with a per-recipient
+result list. `--dry-run-only` starts the server in a mode that can never send for real.
+
+Endpoints: `GET /api/config`, `POST /api/preview`, `POST /api/send` (form-encoded:
+`recipients`, `csv` upload, `subject`, `text`, `html`, `dry_run`).
+
+## CLI
 
 ```bash
 # Validate recipients and templates without sending anything

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Email Sender</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Email Sender</h1>
+      <span id="smtp-status" class="badge badge-muted">checking SMTP…</span>
+    </header>
+
+    <main>
+      <form id="compose" class="panel">
+        <label>
+          Recipients
+          <textarea
+            name="recipients"
+            id="recipients"
+            rows="3"
+            placeholder="ada@example.com, grace@example.com"
+          ></textarea>
+          <small>Comma, semicolon or newline separated.</small>
+        </label>
+
+        <label>
+          Or upload a CSV
+          <input type="file" name="csv" id="csv" accept=".csv,text/csv" />
+          <small>
+            Bare column of addresses, or a header row with an <code>email</code> column — other
+            columns become template variables.
+          </small>
+        </label>
+
+        <label>
+          Subject
+          <input type="text" name="subject" id="subject" value="Thank you, $name" required />
+        </label>
+
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab is-active" data-target="text-body">Plain text</button>
+          <button type="button" class="tab" data-target="html-body">HTML</button>
+        </div>
+
+        <label id="text-body" class="body-field">
+          <span class="sr-only">Plain text body</span>
+          <textarea name="text" id="text" rows="10" required>{{ default_text }}</textarea>
+        </label>
+
+        <label id="html-body" class="body-field is-hidden">
+          <span class="sr-only">HTML body</span>
+          <textarea name="html" id="html" rows="10">{{ default_html }}</textarea>
+        </label>
+
+        <small>
+          Use <code>$name</code> / <code>${name}</code> placeholders; <code>$email</code> is always
+          available.
+        </small>
+
+        <div class="actions">
+          <label class="checkbox">
+            <input
+              type="checkbox"
+              name="dry_run"
+              id="dry_run"
+              checked
+              {% if dry_run_only %}disabled{% endif %}
+            />
+            Dry run (render only, send nothing)
+            {% if dry_run_only %}<em>— server started with --dry-run-only</em>{% endif %}
+          </label>
+          <div class="buttons">
+            <button type="button" id="preview-btn" class="secondary">Preview</button>
+            <button type="submit" id="send-btn">Send</button>
+          </div>
+        </div>
+      </form>
+
+      <section class="panel" id="output">
+        <h2>Preview</h2>
+        <p id="preview-meta" class="muted">Nothing rendered yet.</p>
+        <div id="preview-subject" class="preview-subject"></div>
+        <iframe id="preview-html" title="HTML preview"></iframe>
+        <pre id="preview-text" class="is-hidden"></pre>
+
+        <h2>Results</h2>
+        <p id="result-summary" class="muted">No send attempted yet.</p>
+        <ul id="result-list"></ul>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

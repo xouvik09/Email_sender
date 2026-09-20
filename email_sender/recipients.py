@@ -1,5 +1,6 @@
 import csv
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -25,21 +26,27 @@ def is_valid_email(value: str) -> bool:
 
 
 def read_recipients(path: str | Path, skip_invalid: bool = True) -> list[Recipient]:
-    """Read recipients from a CSV file.
-
-    The file may be a bare single column of addresses, or have a header row
-    where one column is named ``email``; remaining columns become template
-    variables for that recipient.
-    """
+    """Read recipients from a CSV file. See :func:`parse_recipients` for the format."""
     csv_path = Path(path)
     if not csv_path.is_file():
         raise RecipientError(f"Recipient file not found: {csv_path}")
 
     with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
-        rows = [row for row in csv.reader(handle) if any(cell.strip() for cell in row)]
+        return parse_recipients(csv.reader(handle), skip_invalid=skip_invalid, source=str(csv_path))
 
+
+def parse_recipients(
+    csv_rows: Iterable[list[str]], skip_invalid: bool = True, source: str = "CSV input"
+) -> list[Recipient]:
+    """Parse recipients from CSV rows.
+
+    Rows may be a bare single column of addresses, or start with a header row
+    where one column is named ``email``; remaining columns become template
+    variables for that recipient.
+    """
+    rows = [row for row in csv_rows if any(cell.strip() for cell in row)]
     if not rows:
-        raise RecipientError(f"Recipient file is empty: {csv_path}")
+        raise RecipientError(f"No rows found in {source}")
 
     header = [cell.strip().lower() for cell in rows[0]]
     if "email" in header:
@@ -76,6 +83,6 @@ def read_recipients(path: str | Path, skip_invalid: bool = True) -> list[Recipie
     if invalid and not skip_invalid:
         raise RecipientError("Invalid email addresses: " + ", ".join(invalid))
     if not recipients:
-        raise RecipientError(f"No valid email addresses found in {csv_path}")
+        raise RecipientError(f"No valid email addresses found in {source}")
 
     return recipients
