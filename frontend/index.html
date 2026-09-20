@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatch | Email Delivery Console</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+    <main class="shell">
+        <!-- Top Navigation -->
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="Dispatch home">
+                <span class="brand-mark">D</span>
+                <span>dispatch<span class="brand-dot">.</span></span>
+            </a>
+            <div class="topbar-right">
+                <div class="connection">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Hero / Intro -->
+        <section class="intro">
+            <div class="intro-content">
+                <p class="eyebrow">Direct SMTP Delivery Engine &bull; Production Ready</p>
+                <h1>Send something<br><em>worth opening.</em></h1>
+                <p class="lede">Connect your email provider, compose normal plain-text or rich HTML emails with real-time preview, and deliver directly to real recipient inboxes.</p>
+            </div>
+        </section>
+
+        <!-- Main Workspace -->
+        <section class="workspace">
+            <form id="emailForm" class="composer" novalidate>
+                
+                <!-- Section 1: SMTP Delivery Configuration -->
+                <div class="section-card">
+                    <div class="section-heading">
+                        <span class="step-num">01</span>
+                        <div>
+                            <h2>SMTP Delivery Configuration</h2>
+                            <p class="section-subtext">Connect your email provider to send live emails.</p>
+                        </div>
+                    </div>
+
+                    <!-- Provider Quick Selector -->
+                    <div class="provider-row">
+                        <label>Quick Provider Setup:</label>
+                        <div class="provider-chips">
+                            <button type="button" class="provider-chip active" data-provider="gmail">Gmail</button>
+                            <button type="button" class="provider-chip" data-provider="outlook">Outlook / 365</button>
+                            <button type="button" class="provider-chip" data-provider="yahoo">Yahoo</button>
+                            <button type="button" class="provider-chip" data-provider="custom">Custom SMTP</button>
+                        </div>
+                    </div>
+
+                    <div id="providerTip" class="provider-tip-box">
+                        <strong>Gmail Setup:</strong> Enter your Gmail address in <em>Username</em> and <em>From Address</em>. In <em>Password</em>, enter a <strong>Google App Password</strong> (16 characters from Google Account &gt; Security &gt; 2-Step Verification &gt; App Passwords), not your regular Gmail account password.
+                    </div>
+
+                    <div id="serverConfigNotice" class="server-config-badge" style="display: none;">
+                        <span class="badge-icon">&#10003;</span>
+                        <span id="serverConfigText">Server environment credentials active</span>
+                    </div>
+
+                    <!-- SMTP Credential Fields -->
+                    <div id="smtpFields" class="field-grid">
+                        <div>
+                            <label for="smtpHost">SMTP Host</label>
+                            <input id="smtpHost" type="text" value="smtp.gmail.com" placeholder="smtp.gmail.com" autocomplete="url" required>
+                        </div>
+                        <div>
+                            <label for="smtpPort">Port</label>
+                            <input id="smtpPort" type="number" value="465" min="1" max="65535" required>
+                        </div>
+                        <div>
+                            <label for="smtpUsername">Username / Email</label>
+                            <input id="smtpUsername" type="email" placeholder="you@gmail.com" autocomplete="username" required>
+                        </div>
+                        <div>
+                            <label for="smtpPassword">Password / App Password</label>
+                            <input id="smtpPassword" type="password" placeholder="16-character App Password" autocomplete="current-password" required>
+                        </div>
+                        <div>
+                            <label for="smtpSender">From Address</label>
+                            <input id="smtpSender" type="email" placeholder="you@gmail.com" autocomplete="email" required>
+                        </div>
+                        <div>
+                            <label for="smtpSecurity">Encryption</label>
+                            <select id="smtpSecurity">
+                                <option value="ssl" selected>SSL / TLS (Port 465)</option>
+                                <option value="starttls">STARTTLS (Port 587)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="test-conn-row">
+                        <button type="button" id="testConnBtn" class="btn-secondary">
+                            <span>Test SMTP Connection</span>
+                        </button>
+                        <span id="testConnStatus" class="test-status"></span>
+                    </div>
+                </div>
+
+                <!-- Section 2: Recipients -->
+                <div class="section-card">
+                    <div class="section-heading">
+                        <span class="step-num">02</span>
+                        <div>
+                            <h2>Recipients</h2>
+                            <p class="section-subtext">Add real recipient email addresses.</p>
+                        </div>
+                    </div>
+
+                    <div class="recipients-toolbar">
+                        <button type="button" id="importCsvBtn" class="btn-tool">
+                            <span>&#128194;</span> Import CSV / TXT
+                        </button>
+                        <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none">
+                        <button type="button" id="clearRecipientsBtn" class="btn-tool btn-danger-text">
+                            Clear
+                        </button>
+                    </div>
+
+                    <label for="recipients">Recipient Email Addresses (one per line or separated by commas)</label>
+                    <textarea id="recipients" name="recipients" rows="3" placeholder="alex@example.com&#10;sarah@company.com" required></textarea>
+                    
+                    <div class="recipients-meta">
+                        <span id="recipientCount">0 recipients</span>
+                        <span id="recipientsValidation" class="validation-pill"></span>
+                    </div>
+                </div>
+
+                <!-- Section 3: Subject & Mail Format Selection -->
+                <div class="section-card">
+                    <div class="section-heading">
+                        <span class="step-num">03</span>
+                        <div>
+                            <h2>Compose Message</h2>
+                            <p class="section-subtext">Choose whether to send as Normal Mail or Rich HTML Mail.</p>
+                        </div>
+                    </div>
+
+                    <!-- Subject Line -->
+                    <div class="field-block">
+                        <label for="subject">Subject Line <span class="required-tag">required</span></label>
+                        <input id="subject" name="subject" type="text" placeholder="Enter an attention-grabbing subject line..." maxlength="200" required>
+                    </div>
+
+                    <!-- Format Selection Buttons -->
+                    <div class="format-choice-block">
+                        <label>Email Delivery Format</label>
+                        <div class="format-button-group">
+                            <button type="button" id="selectNormalMailBtn" class="format-btn active">
+                                <span class="format-icon">&#9993;</span>
+                                <span class="format-title">Normal Mail</span>
+                                <span class="format-subtitle">Standard Plain Text</span>
+                            </button>
+                            <button type="button" id="selectHtmlMailBtn" class="format-btn">
+                                <span class="format-icon">&#9889;</span>
+                                <span class="format-title">HTML Mail</span>
+                                <span class="format-subtitle">Rich Markup &amp; Styling</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quick Preset Templates -->
+                    <div class="presets-row">
+                        <label for="templateSelect">Load Preset Template:</label>
+                        <select id="templateSelect" class="select-sm">
+                            <option value="">-- Choose a ready template --</option>
+                        </select>
+                    </div>
+
+                    <!-- NORMAL MAIL BODY BLOCK -->
+                    <div id="normalMailBodyBlock" class="body-block">
+                        <div class="body-block-header">
+                            <div class="body-title">
+                                <label for="normalBody">Message Body <span class="badge-plain">Plain Text</span></label>
+                                <span class="body-hint">Type your message text directly below.</span>
+                            </div>
+                            <div class="editor-tools">
+                                <button type="button" class="tool-btn" id="insertGreetingBtn">+ Greeting</button>
+                                <button type="button" class="tool-btn" id="insertSignoffBtn">+ Sign-off</button>
+                                <button type="button" class="tool-btn" id="clearNormalBodyBtn">Clear</button>
+                            </div>
+                        </div>
+
+                        <textarea id="normalBody" name="normalBody" rows="10" placeholder="Hi there,&#10;&#10;Type the body of your message here. It will be sent as a clean, universally readable normal email...&#10;&#10;Best regards,&#10;Your Name" required></textarea>
+                        
+                        <div class="body-footer-stats">
+                            <span id="normalWordCount">0 words &bull; 0 characters</span>
+                        </div>
+                    </div>
+
+                    <!-- HTML MAIL BODY BLOCK -->
+                    <div id="htmlMailBodyBlock" class="body-block" style="display: none;">
+                        <div class="body-block-header">
+                            <div class="body-title">
+                                <label for="htmlBody">Message Body <span class="badge-html">HTML Source</span></label>
+                                <span class="body-hint">Write or paste rich HTML markup with inline styles.</span>
+                            </div>
+                            <div class="editor-tools">
+                                <button type="button" class="tool-btn" id="insertTagP">&lt;p&gt;</button>
+                                <button type="button" class="tool-btn" id="insertTagB">&lt;b&gt;</button>
+                                <button type="button" class="tool-btn" id="insertTagH2">&lt;h2&gt;</button>
+                                <button type="button" class="tool-btn" id="insertTagButton">Button</button>
+                                <button type="button" class="tool-btn" id="insertTagCard">Card Box</button>
+                            </div>
+                        </div>
+
+                        <textarea id="htmlBody" name="htmlBody" class="code-textarea" rows="11" placeholder="<div style=&quot;font-family: Arial, sans-serif; padding: 24px; color: #333;&quot;>&#10;  <h2 style=&quot;color: #14201e;&quot;>Hello World</h2>&#10;  <p>Type your rich HTML email body here...</p>&#10;</div>"></textarea>
+
+                        <div class="body-footer-stats">
+                            <span id="htmlCharCount">0 characters</span>
+                            <button type="button" id="copyToTextBtn" class="btn-link-sm">Sync to Plain-Text Fallback</button>
+                        </div>
+
+                        <!-- Optional Plain-Text Fallback Accordion -->
+                        <details class="fallback-accordion">
+                            <summary>Plain-Text Fallback (Optional, auto-generated if left empty)</summary>
+                            <div class="fallback-content">
+                                <textarea id="textFallback" name="textFallback" rows="4" placeholder="Fallback text for recipients using text-only email clients..."></textarea>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Attachments Block -->
+                    <div class="attachments-block">
+                        <div class="attachments-header">
+                            <label>File Attachments <span class="optional">optional</span></label>
+                            <button type="button" id="addAttachmentBtn" class="btn-secondary btn-sm">+ Attach File</button>
+                            <input type="file" id="attachmentInput" multiple style="display:none">
+                        </div>
+                        <div id="attachmentList" class="attachment-chips"></div>
+                    </div>
+
+                    <!-- Dual Send Action Buttons -->
+                    <div class="action-buttons-bar">
+                        <button type="button" id="sendNormalBtn" class="btn-action btn-normal-action">
+                            <span class="btn-icon">&#9993;</span>
+                            <span class="btn-text" id="sendNormalText">Send Normal Mail</span>
+                        </button>
+
+                        <button type="button" id="sendHtmlBtn" class="btn-action btn-html-action">
+                            <span class="btn-icon">&#9889;</span>
+                            <span class="btn-text" id="sendHtmlText">Send HTML Mail</span>
+                        </button>
+                    </div>
+
+                    <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+                </div>
+            </form>
+
+            <!-- Right Panel: Live Preview & Sent History -->
+            <aside class="side-panel">
+                <div class="tab-bar">
+                    <button type="button" class="tab-btn active" id="tabPreviewBtn">
+                        Live Preview
+                    </button>
+                    <button type="button" class="tab-btn" id="tabHistoryBtn">
+                        Sent Log (<span id="historyCount">0</span>)
+                    </button>
+                </div>
+
+                <!-- Preview Tab Content -->
+                <div id="previewTabContent" class="tab-content active">
+                    <div class="preview-envelope">
+                        <div class="envelope-row">
+                            <span class="envelope-label">From:</span>
+                            <span class="envelope-val" id="previewFrom">you@example.com</span>
+                        </div>
+                        <div class="envelope-row">
+                            <span class="envelope-label">To:</span>
+                            <span class="envelope-val" id="previewTo">No recipients specified</span>
+                        </div>
+                        <div class="envelope-row">
+                            <span class="envelope-label">Subject:</span>
+                            <span class="envelope-val strong" id="previewSubject">Your subject line</span>
+                        </div>
+                        <div class="envelope-format">
+                            <span class="format-badge" id="previewFormatBadge">NORMAL TEXT</span>
+                        </div>
+                    </div>
+
+                    <div class="preview-frame-wrap">
+                        <iframe id="preview" title="Email preview" sandbox=""></iframe>
+                    </div>
+                    <p class="preview-note">Updates automatically in real time as you compose your message.</p>
+                </div>
+
+                <!-- History Tab Content -->
+                <div id="historyTabContent" class="tab-content">
+                    <div class="history-top">
+                        <span class="eyebrow">Transmission History</span>
+                        <button type="button" id="refreshHistoryBtn" class="btn-tool">Refresh</button>
+                    </div>
+                    <div id="historyList" class="history-list">
+                        <div class="history-empty">No emails delivered in this session yet.</div>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <footer>
+            <span>DISPATCH EMAIL CONSOLE &bull; PYTHON POWERED</span>
+            <span>SMTP &bull; SSL/TLS &bull; STARTTLS</span>
+        </footer>
+    </main>
+
+    <script src="/assets/app.js"></script>
+</body>
+</html>

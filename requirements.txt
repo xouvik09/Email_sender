@@ -1,0 +1,2 @@
+# Python 3.10+ Standard Library is used.
+# No third-party pip dependencies are required to run this application.

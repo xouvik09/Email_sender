@@ -1,93 +1,102 @@
-# Installation
-install the requirements files
+# Dispatch — Professional SMTP Email Delivery Engine
 
-# Email Sending Script
+A production-ready, zero-dependency email delivery system and bulk dispatch platform built on the **Python standard library** (`http.server`, `smtplib`, `ssl`, `email.mime.*`) and modern vanilla JavaScript.
 
-This is a simple Python script to send emails with custom templates of personal choise in HTML formate using SMTP.
+Designed for real-world deployment on servers, VPS, or cloud containers with high reliability, clean UX, and strict RFC-compliant MIME formatting.
 
-## Usage
+---
 
-Update the following variables in the script:
+## Key Features
 
-- `email` - The email address to send from
-- `password` - The password for the email address
-- `recipient` - The recipient's email address
-- `SMTP_SERVER_ADDRESS` - The SMTP server address. For Gmail this is `smtp.gmail.com`
+- **Real SMTP Delivery**: Direct authenticated delivery over SSL/TLS (port 465) or STARTTLS (port 587).
+- **Dual Format Support**:
+  - **Normal Mail (Plain Text)**: Standard plain-text formatting, clean typography, character & word counters, greeting/sign-off insertion.
+  - **Rich HTML Mail**: Code editor with inline HTML formatting controls (`<p>`, `<b>`, `<h2>`, CTA buttons, card containers) and plain-text fallback generation.
+- **Provider Presets**: Instant 1-click configuration for **Gmail**, **Microsoft 365 / Outlook**, **Yahoo Mail**, or **Custom SMTP**.
+- **Attachment Support**: Native base64 MIME multipart encoding for documents, PDFs, images, and spreadsheets up to 25MB.
+- **Recipient Import & Batching**: Direct input or one-click CSV / text import with real-time address validation.
+- **Pre-flight Connection Tester**: Authenticate your credentials with your SMTP host prior to dispatch.
+- **Live Email Client Preview**: Real-time rendering of email headers (`From`, `To`, `Subject`, `Format`) and message body.
+- **Transmission Audit Log**: Session log recording delivery status, timestamps, recipient count, and mail format.
+- **Zero Third-Party Dependencies**: No `requests`, no `flask`, no `django`, no `npm` required. Uses purely Python's standard library.
 
-Run the script:
+---
 
-```
-python singleEmailSernder.py
-```
+## Quick Start
 
-An email will be sent to the recipient address with the subject "Test Subject" and plain text body "This is a test email".
-
-## Libraries Used
-
-- smtplib - Used for connecting to the SMTP server and sending the email
-- SSL - Used for creating a SSL context to connect securely
-- MIMEMultipart - Used for constructing the email message with text and attachments
-- MIMEText - Used for the text body of the email message
-
-## How it Works
-
-- Connects to the SMTP server using SSL
-- Logs in with the provided username and password
-- Constructs the email message with recipient, subject, and plaintext body
-- Sends the message
-- Prints the response code and message from the server
-- Closes the connection
-
-So in summary, this script provides a simple way to send automated emails using Python by connecting to an SMTP server.
-
-# Email Sending Script with HTML
-
-This Python script sends emails with HTML formatting using SMTP.
-
-## Usage
-
-Update the following variables:
-
-- `email` - The sender email address
-- `password` - The password for the sender email
-- `receivers` - List of recipient email addresses in email.csv
-- `html` - HTML email body in msg.html
-- `text` - Plaintext email body in msg.txt
-
-Run the script:
-
-```
-pip install requirements.txt
-python htmlEmail.py
+### 1. Run the Server
+```bash
+python app.py
 ```
 
-It will send an email to each recipient with the HTML and plaintext bodies.
+### 2. Access the Console
+Open your browser at:
+```
+http://127.0.0.1:8000
+```
 
-## How it works
+---
 
-- Opens email.csv containing list of recipient emails
-- Reads in HTML email body from msg.html
-- Reads in plaintext body from msg.txt
-- Loops through each recipient
-  - Constructs MIME multipart message with HTML and plaintext
-  - Sets subject, from, and to fields
-  - Logs into SMTP server
-  - Sends message
-  - Prints response from server
-- Closes SMTP connection when done
+## Mail Provider Setup
 
-So in summary, this script sends emails with HTML formatting to multiple recipients using CSV and SMTP.
+### Gmail
+1. Select the **Gmail** provider button (sets host `smtp.gmail.com`, port `465`, SSL).
+2. In **Username**, enter your full Gmail address.
+3. In **Password**, enter a **16-character Google App Password**:
+   - Go to [Google Account Security](https://myaccount.google.com/security).
+   - Ensure **2-Step Verification** is enabled.
+   - Go to [App Passwords](https://myaccount.google.com/apppasswords).
+   - Generate an app password for `Dispatch` and paste the 16 characters into the password field.
 
-## Libraries used
+### Microsoft 365 / Outlook
+1. Select the **Outlook / 365** provider button (sets host `smtp.office365.com`, port `587`, STARTTLS).
+2. Enter your Microsoft 365 or Outlook email and account/app password.
 
-- smtplib
-- SSL
-- MIMEMultipart
-- MIMEText
-- csv
+### Yahoo Mail
+1. Select the **Yahoo** provider button (sets host `smtp.mail.yahoo.com`, port `465`, SSL).
+2. Generate an App Password in Yahoo Account Security settings and paste into the password field.
 
-Let me know if you need any other clarification!
+### Custom SMTP Server
+Select **Custom** and enter your corporate or hosting provider's SMTP host, port, credentials, and SSL or STARTTLS encryption mode.
 
+---
 
-Author: Souvik Ghosh
-Email: Souvik.ghosh.9279@gmail.com
+## Environment Configuration (`.env`)
+
+For deployment environments or persistent credentials without manual browser input, create a `.env` file in the project directory:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM=your-email@gmail.com
+SMTP_SECURITY=ssl
+APP_HOST=0.0.0.0
+APP_PORT=8000
+```
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/health` | System status and active server SMTP configuration |
+| `GET` | `/api/templates` | Ready-to-use email templates (HTML & Plain Text) |
+| `GET` | `/api/history` | Audit log of sent email transmissions |
+| `POST` | `/api/verify` | Tests SMTP host connectivity and authentication |
+| `POST` | `/api/send` | Executes real email dispatch via authenticated SMTP |
+
+---
+
+## Production Deployment
+
+To run as a continuous background service on Linux/VPS:
+
+```bash
+# Using systemd or nohup
+nohup python3 app.py > dispatch.log 2>&1 &
+```
+
+Or deploy behind a reverse proxy such as Nginx or Caddy with SSL enabled.
