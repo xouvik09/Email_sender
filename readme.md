@@ -1,93 +1,79 @@
-# Installation
-install the requirements files
+# Email Sender
 
-# Email Sending Script
+Send templated plaintext + HTML emails over SMTP to one recipient or a CSV list —
+from a web UI or the command line. Both share the same `email_sender` core, so it
+is a single project with one config and one dependency set.
 
-This is a simple Python script to send emails with custom templates of personal choise in HTML formate using SMTP.
+## Install
 
-## Usage
-
-Update the following variables in the script:
-
-- `email` - The email address to send from
-- `password` - The password for the email address
-- `recipient` - The recipient's email address
-- `SMTP_SERVER_ADDRESS` - The SMTP server address. For Gmail this is `smtp.gmail.com`
-
-Run the script:
-
-```
-python singleEmailSernder.py
+```bash
+pip install -r requirements.txt
+cp .env.example .env   # then fill in your SMTP credentials
 ```
 
-An email will be sent to the recipient address with the subject "Test Subject" and plain text body "This is a test email".
+Credentials are read from the environment (or `.env`), never hard-coded:
 
-## Libraries Used
+| Variable | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `SMTP_HOST` | yes | – | e.g. `smtp.gmail.com` |
+| `SMTP_USERNAME` | yes | – | login / default From address |
+| `SMTP_PASSWORD` | yes | – | Gmail needs an app password |
+| `SMTP_PORT` | no | 465 (SSL) / 587 (STARTTLS) | |
+| `SMTP_USE_SSL` | no | `true` | set `false` for STARTTLS |
+| `SMTP_SENDER` | no | `SMTP_USERNAME` | From override |
+| `SMTP_SENDER_NAME` | no | – | display name |
 
-- smtplib - Used for connecting to the SMTP server and sending the email
-- SSL - Used for creating a SSL context to connect securely
-- MIMEMultipart - Used for constructing the email message with text and attachments
-- MIMEText - Used for the text body of the email message
+## Web UI
 
-## How it Works
-
-- Connects to the SMTP server using SSL
-- Logs in with the provided username and password
-- Constructs the email message with recipient, subject, and plaintext body
-- Sends the message
-- Prints the response code and message from the server
-- Closes the connection
-
-So in summary, this script provides a simple way to send automated emails using Python by connecting to an SMTP server.
-
-# Email Sending Script with HTML
-
-This Python script sends emails with HTML formatting using SMTP.
-
-## Usage
-
-Update the following variables:
-
-- `email` - The sender email address
-- `password` - The password for the sender email
-- `receivers` - List of recipient email addresses in email.csv
-- `html` - HTML email body in msg.html
-- `text` - Plaintext email body in msg.txt
-
-Run the script:
-
-```
-pip install requirements.txt
-python htmlEmail.py
+```bash
+python -m email_sender.web            # http://127.0.0.1:8000
+python -m email_sender.web --port 5000 --dry-run-only
 ```
 
-It will send an email to each recipient with the HTML and plaintext bodies.
+The page shows whether SMTP credentials are configured, lets you paste addresses
+or upload a CSV, edit the plaintext and HTML bodies (prefilled from `src/`),
+preview the rendered message for the first recipient, and send with a per-recipient
+result list. `--dry-run-only` starts the server in a mode that can never send for real.
 
-## How it works
+Endpoints: `GET /api/config`, `POST /api/preview`, `POST /api/send` (form-encoded:
+`recipients`, `csv` upload, `subject`, `text`, `html`, `dry_run`).
 
-- Opens email.csv containing list of recipient emails
-- Reads in HTML email body from msg.html
-- Reads in plaintext body from msg.txt
-- Loops through each recipient
-  - Constructs MIME multipart message with HTML and plaintext
-  - Sets subject, from, and to fields
-  - Logs into SMTP server
-  - Sends message
-  - Prints response from server
-- Closes SMTP connection when done
+## CLI
 
-So in summary, this script sends emails with HTML formatting to multiple recipients using CSV and SMTP.
+```bash
+# Validate recipients and templates without sending anything
+python -m email_sender.cli --csv src/email.csv --dry-run
 
-## Libraries used
+# Send the HTML + plaintext templates to everyone in the CSV
+python -m email_sender.cli --csv src/email.csv --subject "Thank you, $name"
 
-- smtplib
-- SSL
-- MIMEMultipart
-- MIMEText
-- csv
+# One-off message, no CSV
+python -m email_sender.cli --to someone@example.com --subject "Hi" --text src/msg.txt
+```
 
-Let me know if you need any other clarification!
+Options: `--csv`, `--to` (repeatable), `--subject`, `--html`, `--text`,
+`--attach` (repeatable), `--env-file`, `--delay`, `--dry-run`, `--verbose`.
+Exit code is `0` on success, `1` if any message failed, `2` for bad
+configuration or input.
 
+## Templates and recipients
+
+`src/email.csv` may be a bare column of addresses, or have a header row with an
+`email` column; every other column becomes a template variable for that row.
+
+```csv
+name,email
+Ada,ada@example.com
+```
+
+Subject and body files substitute `$name` / `${name}` placeholders, plus
+`$email` which is always available. Invalid and duplicate addresses are skipped;
+a failed send is reported and the run continues with the next recipient.
+
+## Tests
+
+```bash
+python -m pytest
+```
 
 Author: Souvik Ghosh
-Email: Souvik.ghosh.9279@gmail.com
