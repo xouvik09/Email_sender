@@ -1,1 +1,5 @@
-email sent sucessfully
+Hi {{ name }},
+
+Thanks for reading! This is the plaintext version of the message.
+
+- Souvik
