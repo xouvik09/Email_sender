@@ -1,38 +1,39 @@
 # Dispatch — Professional SMTP Email Delivery Engine
 
-A production-ready, zero-dependency email delivery system and bulk dispatch platform built on the **Python standard library** (`http.server`, `smtplib`, `ssl`, `email.mime.*`) and modern vanilla JavaScript.
+A production-ready, zero-dependency email delivery platform built on the **Python standard library** and modern vanilla JavaScript.
 
-Designed for real-world deployment on **Vercel**, Linux VPS, or cloud containers with high reliability, clean UX, and strict RFC-compliant MIME formatting.
+Runs identically in local environments and as a Serverless / WSGI application on **Vercel**.
 
 ---
 
 ## Deploy to Vercel (1-Click or CLI)
 
-This project is pre-configured with `vercel.json` and serverless Python handlers in `api/index.py`.
+This repository is pre-configured with `vercel.json`, root static assets, and Python WSGI Serverless API in `api/index.py`.
 
 ### Option A: Deploy via GitHub (Recommended)
-1. Push your repository to GitHub (already linked: `https://github.com/xouvik09/Email_sender`).
+1. Push your repository to GitHub: [**xouvik09/Email_sender**](https://github.com/xouvik09/Email_sender).
 2. Go to **[vercel.com](https://vercel.com/)** and log in.
 3. Click **"Add New..."** &rarr; **"Project"**.
 4. Import your **`Email_sender`** repository.
-5. Click **Deploy**. Vercel will automatically build the static assets and serverless Python API.
+5. Click **Deploy**. Vercel will automatically serve the static frontend via edge CDN and route `/api/*` to the serverless Python handler.
 
 *(Optional)* In the Vercel Project Settings &rarr; **Environment Variables**, you can define `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` if you want default credentials pre-loaded.
 
 ### Option B: Deploy via Vercel CLI
 ```bash
-# Install Vercel CLI if you haven't already
+# Install Vercel CLI if needed
 npm i -g vercel
 
 # Run deploy from the project folder
-vercel
+vercel --prod
 ```
 
 ---
 
 ## Key Features
 
-- **Real SMTP Delivery**: Direct authenticated delivery over SSL/TLS (port 465) or STARTTLS (port 587).
+- **Universal WSGI Architecture**: Native compatibility with Vercel Serverless Functions, AWS Lambda, and local WSGI servers.
+- **Real SMTP Delivery**: Authenticated direct delivery over SSL/TLS (port 465) or STARTTLS (port 587).
 - **Dual Format Support**:
   - **Normal Mail (Plain Text)**: Standard plain-text formatting, clean typography, character & word counters, greeting/sign-off insertion.
   - **Rich HTML Mail**: Code editor with inline HTML formatting controls (`<p>`, `<b>`, `<h2>`, CTA buttons, card containers) and plain-text fallback generation.
@@ -42,7 +43,26 @@ vercel
 - **Pre-flight Connection Tester**: Authenticate your credentials with your SMTP host prior to dispatch.
 - **Live Email Client Preview**: Real-time rendering of email headers (`From`, `To`, `Subject`, `Format`) and message body.
 - **Transmission Audit Log**: Session log recording delivery status, timestamps, recipient count, and mail format.
-- **Zero Third-Party Dependencies**: No `requests`, no `flask`, no `django`, no `npm` required. Uses purely Python's standard library.
+- **Zero Third-Party Dependencies**: No `pip` dependencies required. Uses purely Python's standard library.
+
+---
+
+## Project Structure
+
+```
+├── api/
+│   └── index.py        # Universal WSGI Serverless API (/api/health, /api/send, etc.)
+├── assets/
+│   ├── app.js          # Client-side UI & real SMTP dispatcher
+│   └── styles.css      # Design system & responsive layout
+├── index.html          # Clean static web console
+├── app.py              # Local server runner (python app.py)
+├── vercel.json         # Vercel serverless routing configuration
+├── .env.example        # Sample environment variables
+├── .gitignore          # Git exclusion rules
+├── requirements.txt    # Zero-dependency specification
+└── readme.md           # Documentation
+```
 
 ---
 
@@ -96,7 +116,7 @@ SMTP_USER=your-email@gmail.com
 SMTP_PASSWORD=your-app-password
 SMTP_FROM=your-email@gmail.com
 SMTP_SECURITY=ssl
-APP_HOST=0.0.0.0
+APP_HOST=127.0.0.1
 APP_PORT=8000
 ```
 

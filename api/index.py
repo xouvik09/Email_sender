@@ -1,11 +1,9 @@
-"""Dispatch Email Server & Vercel Serverless Function."""
+"""Dispatch Email Server — Universal WSGI & Vercel Serverless Application."""
 import base64
 import email.encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
 import os
@@ -14,10 +12,10 @@ import re
 import smtplib
 import ssl
 import time
-from urllib.parse import urlparse
+from urllib.parse import parse_qs
+from wsgiref.simple_server import make_server
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-FRONTEND_DIR = BASE_DIR / "frontend"
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 # Load .env if present locally
@@ -41,24 +39,15 @@ TRANSMISSION_HISTORY = []
 MAX_HISTORY = 100
 
 
-def json_response(handler_inst, status, payload):
-    body = json.dumps(payload, default=str).encode("utf-8")
-    handler_inst.send_response(status)
-    handler_inst.send_header("Content-Type", "application/json; charset=utf-8")
-    handler_inst.send_header("Content-Length", str(len(body)))
-    handler_inst.send_header("Access-Control-Allow-Origin", "*")
-    handler_inst.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    handler_inst.send_header("Access-Control-Allow-Headers", "Content-Type")
-    handler_inst.end_headers()
-    handler_inst.wfile.write(body)
-
-
-def read_json(handler_inst):
-    content_length = int(handler_inst.headers.get("Content-Length", "0"))
-    if content_length > 25_000_000:
-        raise ValueError("Payload size exceeds 25MB attachment limit")
-    raw = handler_inst.rfile.read(content_length)
-    return json.loads(raw.decode("utf-8") if raw else "{}")
+def get_default_smtp():
+    return {
+        "host": os.environ.get("SMTP_HOST", "").strip(),
+        "port": int(os.environ.get("SMTP_PORT", "465")),
+        "username": os.environ.get("SMTP_USER", "") or os.environ.get("SMTP_USERNAME", "").strip(),
+        "password": os.environ.get("SMTP_PASSWORD", ""),
+        "sender": os.environ.get("SMTP_FROM", "") or os.environ.get("SMTP_SENDER", "") or os.environ.get("SMTP_USER", "").strip(),
+        "security": os.environ.get("SMTP_SECURITY", "ssl").lower(),
+    }
 
 
 def strip_html_tags(html_content):
@@ -73,27 +62,16 @@ def strip_html_tags(html_content):
 def format_smtp_error(err):
     err_str = str(err)
     if isinstance(err, smtplib.SMTPAuthenticationError) or "535" in err_str or "Username and Password not accepted" in err_str:
-        return "Authentication Failed (535): Incorrect username or password. If using Gmail, Yahoo, or Outlook, you must use a dedicated App Password instead of your regular login password."
+        return "Authentication Failed (535): Incorrect username or password. If using Gmail, Yahoo, or Outlook, you must use a dedicated App Password instead of your regular account password."
     if "getaddrinfo failed" in err_str or "Name or service not known" in err_str:
         return "Could not resolve SMTP server hostname. Please verify your host address."
     if "timed out" in err_str or "TimeoutError" in err_str:
-        return "Connection timed out. Check the SMTP host, port, and security settings (SSL vs STARTTLS)."
+        return "Connection timed out. Check the SMTP host, port, and security mode (SSL vs STARTTLS)."
     if isinstance(err, smtplib.SMTPSenderRefused) or "Sender address rejected" in err_str:
         return f"Sender address rejected by mail server: {err_str}"
     if isinstance(err, smtplib.SMTPRecipientsRefused):
         return f"Recipient address rejected by mail server: {err_str}"
     return f"SMTP Delivery Error: {err_str}"
-
-
-def get_default_smtp():
-    return {
-        "host": os.environ.get("SMTP_HOST", "").strip(),
-        "port": int(os.environ.get("SMTP_PORT", "465")),
-        "username": os.environ.get("SMTP_USER", "") or os.environ.get("SMTP_USERNAME", "").strip(),
-        "password": os.environ.get("SMTP_PASSWORD", ""),
-        "sender": os.environ.get("SMTP_FROM", "") or os.environ.get("SMTP_SENDER", "") or os.environ.get("SMTP_USER", "").strip(),
-        "security": os.environ.get("SMTP_SECURITY", "ssl").lower(),
-    }
 
 
 def verify_smtp_connection(smtp_settings):
@@ -247,43 +225,14 @@ def execute_smtp_delivery(recipients, subject, text_body, html_body, smtp_settin
     return summary
 
 
-class handler(BaseHTTPRequestHandler):
-    """Vercel and local BaseHTTPRequestHandler."""
-
-    def do_OPTIONS(self):
-        self.send_response(HTTPStatus.NO_CONTENT)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
-
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        path = parsed.path
-
-        if path in ("/api/health", "/health"):
-            defaults = get_default_smtp()
-            has_server_config = bool(defaults["host"] and defaults["username"])
-            json_response(self, HTTPStatus.OK, {
-                "status": "online",
-                "smtp_configured": has_server_config,
-                "default_smtp": {
-                    "host": defaults["host"],
-                    "port": defaults["port"],
-                    "sender": defaults["sender"],
-                    "security": defaults["security"],
-                }
-            })
-            return
-
-        if path in ("/api/templates", "/templates"):
-            templates = [
-                {
-                    "id": "business_announcement",
-                    "name": "Product Announcement (HTML)",
-                    "format": "html",
-                    "subject": "Important Product Update & New Features",
-                    "html": """<div style="max-width: 600px; margin: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+# Standard Templates
+SAMPLE_TEMPLATES = [
+    {
+        "id": "business_announcement",
+        "name": "Product Announcement (HTML)",
+        "format": "html",
+        "subject": "Important Product Update & New Features",
+        "html": """<div style="max-width: 600px; margin: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
     <div style="background: #14201e; padding: 32px 24px; text-align: center; color: #ffffff;">
         <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">Product Update</h1>
         <p style="margin: 8px 0 0; font-size: 14px; color: #d4ee5b;">Discover our latest capabilities</p>
@@ -304,51 +253,139 @@ class handler(BaseHTTPRequestHandler):
         </p>
     </div>
 </div>""",
-                    "text": "Hello,\n\nWe are excited to announce new platform enhancements designed to make your email operations faster and more reliable.\n\nWhat is new:\n- Direct authenticated SMTP transmission\n- Support for both Plain Text and Rich HTML\n- Instant recipient rendering and attachment support\n\nBest regards,\nThe Team",
-                },
-                {
-                    "id": "meeting_followup",
-                    "name": "Meeting Follow-Up (Plain Text)",
-                    "format": "text",
-                    "subject": "Follow-Up: Summary of Action Items",
-                    "html": "",
-                    "text": "Hi team,\n\nThank you for taking the time to meet today. Here is a brief recap of our discussion and agreed next steps:\n\n1. Finalize the deployment environment\n2. Verify production SMTP credentials\n3. Deliver initial batch and review logs\n\nPlease let me know if you have any feedback or if anything needs adjustment.\n\nBest regards,\nYour Name",
+        "text": "Hello,\n\nWe are excited to announce new platform enhancements designed to make your email operations faster and more reliable.\n\nWhat is new:\n- Direct authenticated SMTP transmission\n- Support for both Plain Text and Rich HTML\n- Instant recipient rendering and attachment support\n\nBest regards,\nThe Team",
+    },
+    {
+        "id": "meeting_followup",
+        "name": "Meeting Follow-Up (Plain Text)",
+        "format": "text",
+        "subject": "Follow-Up: Summary of Action Items",
+        "html": "",
+        "text": "Hi team,\n\nThank you for taking the time to meet today. Here is a brief recap of our discussion and agreed next steps:\n\n1. Finalize the deployment environment\n2. Verify production SMTP credentials\n3. Deliver initial batch and review logs\n\nPlease let me know if you have any feedback or if anything needs adjustment.\n\nBest regards,\nYour Name",
+    }
+]
+
+
+def send_json(start_response, status_code, data):
+    status_map = {
+        200: "200 OK",
+        204: "204 No Content",
+        400: "400 Bad Request",
+        404: "404 Not Found",
+        500: "500 Internal Server Error",
+        502: "502 Bad Gateway",
+    }
+    status = status_map.get(status_code, f"{status_code} Unknown")
+    body = json.dumps(data, default=str).encode("utf-8")
+    headers = [
+        ("Content-Type", "application/json; charset=utf-8"),
+        ("Content-Length", str(len(body))),
+        ("Access-Control-Allow-Origin", "*"),
+        ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
+        ("Access-Control-Allow-Headers", "Content-Type"),
+    ]
+    start_response(status, headers)
+    return [body]
+
+
+def send_file(start_response, file_path, content_type):
+    try:
+        data = file_path.read_bytes()
+        headers = [
+            ("Content-Type", content_type),
+            ("Content-Length", str(len(data))),
+        ]
+        start_response("200 OK", headers)
+        return [data]
+    except FileNotFoundError:
+        return send_json(start_response, 404, {"error": "File not found"})
+
+
+# =========================================================
+# Universal WSGI Application Entrypoint (Vercel & Local)
+# =========================================================
+def app(environ, start_response):
+    path = environ.get("PATH_INFO", "")
+    method = environ.get("REQUEST_METHOD", "GET").upper()
+
+    # Normalization for routing
+    clean_path = path.rstrip("/")
+    if not clean_path:
+        clean_path = "/"
+
+    # Handle CORS Pre-flight
+    if method == "OPTIONS":
+        headers = [
+            ("Access-Control-Allow-Origin", "*"),
+            ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
+            ("Access-Control-Allow-Headers", "Content-Type"),
+        ]
+        start_response("204 No Content", headers)
+        return [b""]
+
+    # =====================================================
+    # GET Endpoints
+    # =====================================================
+    if method == "GET":
+        if clean_path in ("/api/health", "/health"):
+            defaults = get_default_smtp()
+            has_server_config = bool(defaults["host"] and defaults["username"])
+            return send_json(start_response, 200, {
+                "status": "online",
+                "smtp_configured": has_server_config,
+                "default_smtp": {
+                    "host": defaults["host"],
+                    "port": defaults["port"],
+                    "sender": defaults["sender"],
+                    "security": defaults["security"],
                 }
-            ]
-            json_response(self, HTTPStatus.OK, {"templates": templates})
-            return
+            })
 
-        if path in ("/api/history", "/history"):
-            json_response(self, HTTPStatus.OK, {"history": TRANSMISSION_HISTORY})
-            return
+        if clean_path in ("/api/templates", "/templates"):
+            return send_json(start_response, 200, {"templates": SAMPLE_TEMPLATES})
 
-        # Fallback for local static file serving when running locally
-        if path in ("/", "/index.html"):
-            self.serve_file(FRONTEND_DIR / "index.html", "text/html; charset=utf-8")
-            return
+        if clean_path in ("/api/history", "/history"):
+            return send_json(start_response, 200, {"history": TRANSMISSION_HISTORY})
 
-        if path.startswith("/assets/"):
-            filename = Path(path.removeprefix("/assets/")).name
-            asset_path = FRONTEND_DIR / "assets" / filename
-            content_type = {
+        # Static file fallback (used when running locally via python app.py)
+        if clean_path in ("/", "/index.html"):
+            return send_file(start_response, BASE_DIR / "index.html", "text/html; charset=utf-8")
+
+        if clean_path.startswith("/assets/"):
+            filename = Path(clean_path.removeprefix("/assets/")).name
+            asset_file = BASE_DIR / "assets" / filename
+            ext_map = {
                 ".css": "text/css; charset=utf-8",
                 ".js": "application/javascript; charset=utf-8",
                 ".svg": "image/svg+xml",
                 ".ico": "image/x-icon",
                 ".png": "image/png",
-            }.get(asset_path.suffix, "application/octet-stream")
-            self.serve_file(asset_path, content_type)
-            return
+            }
+            content_type = ext_map.get(asset_file.suffix, "application/octet-stream")
+            return send_file(start_response, asset_file, content_type)
 
-        json_response(self, HTTPStatus.NOT_FOUND, {"error": "Endpoint not found"})
+        return send_json(start_response, 404, {"error": f"Endpoint '{clean_path}' not found"})
 
-    def do_POST(self):
-        parsed = urlparse(self.path)
-        path = parsed.path
-
-        if path in ("/api/verify", "/verify"):
+    # =====================================================
+    # POST Endpoints
+    # =====================================================
+    if method == "POST":
+        try:
             try:
-                payload = read_json(self)
+                length = int(environ.get("CONTENT_LENGTH", 0))
+            except (TypeError, ValueError):
+                length = 0
+
+            if length > 25_000_000:
+                return send_json(start_response, 400, {"error": "Payload size exceeds 25MB limit"})
+
+            body_raw = environ["wsgi.input"].read(length) if length > 0 else b"{}"
+            payload = json.loads(body_raw.decode("utf-8") if body_raw else "{}")
+        except json.JSONDecodeError:
+            return send_json(start_response, 400, {"error": "Invalid JSON format in request body"})
+
+        if clean_path in ("/api/verify", "/verify"):
+            try:
                 smtp = payload.get("smtp", {})
                 defaults = get_default_smtp()
                 smtp_settings = {
@@ -359,18 +396,19 @@ class handler(BaseHTTPRequestHandler):
                     "security": str(smtp.get("security") or defaults["security"]).lower(),
                 }
                 verify_smtp_connection(smtp_settings)
-                json_response(self, HTTPStatus.OK, {"status": "ok", "message": "SMTP connection & authentication successful. Ready to send."})
+                return send_json(start_response, 200, {
+                    "status": "ok",
+                    "message": "SMTP connection & authentication successful. Ready to send."
+                })
             except ValueError as err:
-                json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(err)})
+                return send_json(start_response, 400, {"error": str(err)})
             except (OSError, smtplib.SMTPException) as err:
-                json_response(self, HTTPStatus.BAD_GATEWAY, {"error": format_smtp_error(err)})
+                return send_json(start_response, 502, {"error": format_smtp_error(err)})
             except Exception as err:
-                json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(err)})
-            return
+                return send_json(start_response, 500, {"error": str(err)})
 
-        if path in ("/api/send", "/send"):
+        if clean_path in ("/api/send", "/send"):
             try:
-                payload = read_json(self)
                 recipients = payload.get("recipients", [])
                 if isinstance(recipients, str):
                     recipients = recipients.replace(",", "\n").splitlines()
@@ -420,7 +458,7 @@ class handler(BaseHTTPRequestHandler):
                 if mail_format == "html" and not html_body and not text_body:
                     raise ValueError("HTML content cannot be empty")
 
-                # Validate SMTP fields
+                # Validate SMTP credentials
                 missing = []
                 if not smtp_settings["host"]: missing.append("SMTP Host")
                 if not smtp_settings["username"]: missing.append("Username / Email")
@@ -435,7 +473,7 @@ class handler(BaseHTTPRequestHandler):
 
                 summary = execute_smtp_delivery(recipients, subject, text_body, html_body, smtp_settings, attachments, mail_format)
                 fmt_label = "Plain Text" if mail_format == "text" else "HTML"
-                
+
                 if summary["failed_count"] == 0:
                     msg_text = f"Delivered {fmt_label} email to {summary['sent_count']} recipient{'s' if summary['sent_count'] > 1 else ''} successfully."
                 elif summary["sent_count"] > 0:
@@ -444,53 +482,36 @@ class handler(BaseHTTPRequestHandler):
                     first_err = summary["results"][0].get("error", "Delivery failed")
                     raise smtplib.SMTPException(first_err)
 
-                json_response(self, HTTPStatus.OK, {
+                return send_json(start_response, 200, {
                     "message": msg_text,
                     "summary": summary
                 })
             except ValueError as error:
-                json_response(self, HTTPStatus.BAD_REQUEST, {"error": str(error)})
+                return send_json(start_response, 400, {"error": str(error)})
             except (OSError, smtplib.SMTPException, RuntimeError) as error:
-                json_response(self, HTTPStatus.BAD_GATEWAY, {"error": format_smtp_error(error)})
+                return send_json(start_response, 502, {"error": format_smtp_error(error)})
             except Exception as error:
-                json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": f"Internal server error: {str(error)}"})
-            return
+                return send_json(start_response, 500, {"error": f"Internal server error: {str(error)}"})
 
-        json_response(self, HTTPStatus.NOT_FOUND, {"error": "Endpoint not found"})
+        return send_json(start_response, 404, {"error": f"Endpoint '{clean_path}' not found"})
 
-    def serve_file(self, path, content_type):
-        try:
-            body = path.read_bytes()
-        except FileNotFoundError:
-            json_response(self, HTTPStatus.NOT_FOUND, {"error": "File not found"})
-            return
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def log_message(self, format_string, *args):
-        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {self.address_string()} - {format_string % args}")
+    return send_json(start_response, 405, {"error": f"Method {method} not allowed"})
 
 
-# Vercel exports
-app = handler
-application = handler
+# Vercel WSGI standard exports
+application = app
 
 
 def run_local_server():
-    host = os.environ.get("APP_HOST", "0.0.0.0") if os.environ.get("APP_HOST") else "127.0.0.1"
+    host = os.environ.get("APP_HOST", "127.0.0.1")
     port = int(os.environ.get("APP_PORT", "8000"))
-    server = ThreadingHTTPServer((host, port), handler)
+    httpd = make_server(host, port, app)
     print("=========================================================")
-    print(" Dispatch Production Mail Server")
+    print(" Dispatch Production Mail Server (Universal WSGI)")
     print(f" Running at http://{host}:{port}")
     print(" Ready for authenticated SMTP deliveries")
     print("=========================================================")
     try:
-        server.serve_forever()
+        httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down server...")
-    finally:
-        server.server_close()
