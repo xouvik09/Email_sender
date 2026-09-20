@@ -1,1 +1,7 @@
-email sent sucessfully
+Hi $name,
+
+Thank you for your support and partnership. If you have any questions,
+reply to this email or write to contact@tronics.dev.
+
+Best regards,
+TRONICS

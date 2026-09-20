@@ -1,93 +1,63 @@
-# Installation
-install the requirements files
+# Email Sender
 
-# Email Sending Script
+Send templated plaintext + HTML emails over SMTP to one recipient or a CSV list,
+from the command line.
 
-This is a simple Python script to send emails with custom templates of personal choise in HTML formate using SMTP.
+## Install
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env   # then fill in your SMTP credentials
+```
+
+Credentials are read from the environment (or `.env`), never hard-coded:
+
+| Variable | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `SMTP_HOST` | yes | – | e.g. `smtp.gmail.com` |
+| `SMTP_USERNAME` | yes | – | login / default From address |
+| `SMTP_PASSWORD` | yes | – | Gmail needs an app password |
+| `SMTP_PORT` | no | 465 (SSL) / 587 (STARTTLS) | |
+| `SMTP_USE_SSL` | no | `true` | set `false` for STARTTLS |
+| `SMTP_SENDER` | no | `SMTP_USERNAME` | From override |
+| `SMTP_SENDER_NAME` | no | – | display name |
 
 ## Usage
 
-Update the following variables in the script:
+```bash
+# Validate recipients and templates without sending anything
+python -m email_sender.cli --csv src/email.csv --dry-run
 
-- `email` - The email address to send from
-- `password` - The password for the email address
-- `recipient` - The recipient's email address
-- `SMTP_SERVER_ADDRESS` - The SMTP server address. For Gmail this is `smtp.gmail.com`
+# Send the HTML + plaintext templates to everyone in the CSV
+python -m email_sender.cli --csv src/email.csv --subject "Thank you, $name"
 
-Run the script:
-
-```
-python singleEmailSernder.py
+# One-off message, no CSV
+python -m email_sender.cli --to someone@example.com --subject "Hi" --text src/msg.txt
 ```
 
-An email will be sent to the recipient address with the subject "Test Subject" and plain text body "This is a test email".
+Options: `--csv`, `--to` (repeatable), `--subject`, `--html`, `--text`,
+`--attach` (repeatable), `--env-file`, `--delay`, `--dry-run`, `--verbose`.
+Exit code is `0` on success, `1` if any message failed, `2` for bad
+configuration or input.
 
-## Libraries Used
+## Templates and recipients
 
-- smtplib - Used for connecting to the SMTP server and sending the email
-- SSL - Used for creating a SSL context to connect securely
-- MIMEMultipart - Used for constructing the email message with text and attachments
-- MIMEText - Used for the text body of the email message
+`src/email.csv` may be a bare column of addresses, or have a header row with an
+`email` column; every other column becomes a template variable for that row.
 
-## How it Works
-
-- Connects to the SMTP server using SSL
-- Logs in with the provided username and password
-- Constructs the email message with recipient, subject, and plaintext body
-- Sends the message
-- Prints the response code and message from the server
-- Closes the connection
-
-So in summary, this script provides a simple way to send automated emails using Python by connecting to an SMTP server.
-
-# Email Sending Script with HTML
-
-This Python script sends emails with HTML formatting using SMTP.
-
-## Usage
-
-Update the following variables:
-
-- `email` - The sender email address
-- `password` - The password for the sender email
-- `receivers` - List of recipient email addresses in email.csv
-- `html` - HTML email body in msg.html
-- `text` - Plaintext email body in msg.txt
-
-Run the script:
-
-```
-pip install requirements.txt
-python htmlEmail.py
+```csv
+name,email
+Ada,ada@example.com
 ```
 
-It will send an email to each recipient with the HTML and plaintext bodies.
+Subject and body files substitute `$name` / `${name}` placeholders, plus
+`$email` which is always available. Invalid and duplicate addresses are skipped;
+a failed send is reported and the run continues with the next recipient.
 
-## How it works
+## Tests
 
-- Opens email.csv containing list of recipient emails
-- Reads in HTML email body from msg.html
-- Reads in plaintext body from msg.txt
-- Loops through each recipient
-  - Constructs MIME multipart message with HTML and plaintext
-  - Sets subject, from, and to fields
-  - Logs into SMTP server
-  - Sends message
-  - Prints response from server
-- Closes SMTP connection when done
-
-So in summary, this script sends emails with HTML formatting to multiple recipients using CSV and SMTP.
-
-## Libraries used
-
-- smtplib
-- SSL
-- MIMEMultipart
-- MIMEText
-- csv
-
-Let me know if you need any other clarification!
-
+```bash
+python -m pytest
+```
 
 Author: Souvik Ghosh
-Email: Souvik.ghosh.9279@gmail.com
